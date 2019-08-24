@@ -14,8 +14,8 @@ app.use(express.static('public'));
 let position = -1;
 let connection = false;
 let key_config = {
-    open: { pos: 246, moter: true },
-    close: { pos: 171, moter: false }
+    open: { pos: 246 },
+    close: { pos: 171 }
 }
 let key_status = "free";
 
@@ -32,13 +32,6 @@ app.get('/api/v1/setting', (req, res) => {
         key_config.close.pos = position;
         res.json({ position: position });
     } else if (req.query.mode === "save") {
-        if (Math.abs(key_config.open.pos - key_config.close.pos) > 256) {
-            key_config.open.moter = false;
-            key_config.close.moter = true;
-        } else {
-            key_config.open.moter = true;
-            key_config.close.moter = false;
-        }
         console.log(key_config)
         res.json({ state: "success" });
     } else {
@@ -56,10 +49,10 @@ app.post('/api/v1/key_control', async (req, res) => {
         }
         if (req.body.command === "lock") {
             key_status = "close";
-            await start_key(key_config.close.moter);
+            await start_key();
         } else {
             key_status = "open";
-            await start_key(key_config.open.moter);
+            await start_key();
         }
     }
     res.json({ position: position });
@@ -86,7 +79,7 @@ obniz.onconnect = async function () {
 
         if (key_status === "open") {
             console.log("open ps:" + position + " conf:" + key_config.open.pos + " diff:" + Math.abs(position - key_config.open.pos));
-            if (Math.abs(position - key_config.open.pos) < 20 || key_config.open.pos) {
+            if (Math.abs(position - key_config.open.pos) < 20) {
                 await finish_key();
             }
         } else if (key_status === "close") {
@@ -109,9 +102,9 @@ obniz.onconnect = async function () {
     }, 1000);
 }
 
-async function start_key(open) {
+async function start_key() {
     motor.power(100);
-    motor.move(open);
+    motor.move(true);
     obniz.io2.output(false);
     obniz.io1.output(true);
     await obniz.wait(100);
