@@ -1,0 +1,73 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+    <div id="obniz-debug"></div>
+    <h1>Key Setting</h1>
+    <button onclick="open_setting()">Open</button>
+    <button onclick="close_setting()">Close</button>
+    <button onclick="save_setting()">Save</button>
+    <div id="open_txt"></div>
+    <div id="close_txt"></div>
+    <h1>Door Control</h1>
+    <button onclick='sendControl({"command":"unlock"})'>OPEN Door</button>
+    <button onclick='sendControl({"command":"lock"})'>CLOSE Door</button>
+
+    <script>
+        async function open_setting() {
+            try {
+                let data = await send("open");
+                console.log(data);
+                $('#open_txt').text(data.position);
+            } catch{
+
+            }
+        }
+        async function close_setting() {
+            try {
+                let data = await send("close");
+                console.log(data);
+                $('#close_txt').text(data.position);
+            } catch{
+
+            }
+        }
+        async function save_setting() {
+            try {
+                let data = await send("save");
+                console.log(data);
+                $('#open_txt').text("");
+                $('#close_txt').text("");
+            } catch{
+
+            }
+
+        };
+
+        async function send(mode) {
+            return await $.ajax({
+                url: '/api/v1/setting?mode=' + mode,
+                type: 'GET',
+                dataType: 'json',
+                timeout: 5000,
+            })
+        }
+
+        function sendControl(json) {
+            $.ajax({
+                url: '/api/v1/key_control',
+                type: 'POST',
+                dataType: 'json',
+                contentType: 'application/json',
+                data: JSON.stringify(json),
+                timeout: 5000,
+            })
+        }
+    </script>
+</body>
+
+</html>

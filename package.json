@@ -1,0 +1,24 @@
+{
+  "name": "key_controller",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wamisnet/key_controller.git"
+  },
+  "author": "wami",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/wamisnet/key_controller/issues"
+  },
+  "homepage": "https://github.com/wamisnet/key_controller#readme",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "express": "^4.17.1",
+    "obniz": "^2.2.0"
+  }
+}
