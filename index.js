@@ -40,23 +40,50 @@ app.get('/api/v1/setting', (req, res) => {
 });
 
 app.post('/api/v1/key_control', async (req, res) => {
-    console.log(req)
+    //console.log(req)
     if (req.body && req.body.command) {
         console.log(req.body.command)
         if (!connection) {
             res.json({ status: "error", description: "device offline" });
             return;
         }
+
+        let max_range = Math.abs(key_config.close.pos -key_config.open.pos);
+        if (max_range > (max / 2)) {
+            console.log("max_angle error");
+            max_range = max - max_range;
+        }  
+        max_range+=100;
+
         if (req.body.command === "lock") {
+            //close button
             key_status = "close";
-            await start_key();
+            console.log("start ps:" + position + " conf:" + key_config.close.pos + " diff:" + Math.abs(position - key_config.close.pos)+"max_range: "+max_range);
+            await setMotor(key_config.close.pos,max_range,position);
         } else {
+            //open button
             key_status = "open";
-            await start_key();
+            console.log("start ps:" + position + " conf:" + key_config.open.pos + " diff:" + Math.abs(position - key_config.open.pos)+"max_range: "+max_range);
+            await setMotor(key_config.open.pos,max_range,position);
         }
     }
     res.json({ position: position });
 });
+
+async function setMotor(target_angle,max_range,position){
+    if (Math.abs(target_angle - position) < 10) {
+        key_status = "free";
+    } else if ( (target_angle > position) && (Math.abs(target_angle - position) < max_range) ) {
+        console.log("1");
+        await start_key(true);
+    } else if ( (target_angle < position) && (Math.abs(target_angle - position) < max_range) ) {
+        console.log("2");
+        await start_key(false);
+    }else{
+        key_status = "free";
+        console.error("out range");
+    }
+}
 
 app.listen(3456, () => console.log('Listening on port 3000'));
 
@@ -79,20 +106,20 @@ obniz.onconnect = async function () {
 
         if (key_status === "open") {
             console.log("open ps:" + position + " conf:" + key_config.open.pos + " diff:" + Math.abs(position - key_config.open.pos));
-            if (Math.abs(position - key_config.open.pos) < 20) {
+            if (Math.abs(position - key_config.open.pos) < 10) {
                 await finish_key();
             }
         } else if (key_status === "close") {
             console.log("close ps:" + position + " conf:" + key_config.close.pos + " diff:" + Math.abs(position - key_config.close.pos));
-            if (Math.abs(position - key_config.close.pos) < 20) {
+            if (Math.abs(position - key_config.close.pos) < 10) {
                 await finish_key()
             }
         } else {
-            console.log("position:" + position);
+           // console.log("position:" + position);
         }
     });
     setInterval(async () => {
-        console.log("setInterval");
+        //console.log("setInterval");
         if (key_status === "free") {
             obniz.io2.output(true);
             obniz.io1.output(false);
@@ -102,9 +129,9 @@ obniz.onconnect = async function () {
     }, 1000);
 }
 
-async function start_key() {
+async function start_key(direction) {
     motor.power(100);
-    motor.move(true);
+    motor.move(direction);
     obniz.io2.output(false);
     obniz.io1.output(true);
     await obniz.wait(100);
