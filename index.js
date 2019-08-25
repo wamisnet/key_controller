@@ -24,7 +24,6 @@ app.get('/api/v1/position', (req, res) => {
 });
 
 app.get('/api/v1/setting', (req, res) => {
-    console.log(req);
     if (req.query.mode === "open") {
         key_config.open.pos = position;
         res.json({ position: position });
@@ -48,39 +47,76 @@ app.post('/api/v1/key_control', async (req, res) => {
             return;
         }
 
-        let max_range = Math.abs(key_config.close.pos -key_config.open.pos);
+        let sensorData = await getPosition(30);
+        console.log(sensorData)
+        if (sensorData.state === "error") {
+            res.json({ status: "error", description: "sensor position Error" });
+            return;
+        }
+
+        let max_range = Math.abs(key_config.close.pos - key_config.open.pos);
         if (max_range > (max / 2)) {
-            console.log("max_angle error");
             max_range = max - max_range;
-        }  
-        max_range+=100;
+        }
+        max_range += 100;
 
         if (req.body.command === "lock") {
             //close button
             key_status = "close";
-            console.log("start ps:" + position + " conf:" + key_config.close.pos + " diff:" + Math.abs(position - key_config.close.pos)+"max_range: "+max_range);
-            await setMotor(key_config.close.pos,max_range,position);
+            console.log("start ps:" + sensorData.position + " conf:" + key_config.close.pos + " diff:" + Math.abs(sensorData.position - key_config.close.pos) + "max_range: " + max_range);
+            await setMotor(key_config.close.pos, max_range, sensorData.position);
         } else {
             //open button
             key_status = "open";
-            console.log("start ps:" + position + " conf:" + key_config.open.pos + " diff:" + Math.abs(position - key_config.open.pos)+"max_range: "+max_range);
-            await setMotor(key_config.open.pos,max_range,position);
+            console.log("start ps:" + sensorData.position + " conf:" + key_config.open.pos + " diff:" + Math.abs(sensorData.position - key_config.open.pos) + "max_range: " + max_range);
+            await setMotor(key_config.open.pos, max_range, sensorData.position);
         }
     }
-    res.json({ position: position });
+    res.json({ state: "success" });
+    return;
 });
 
-async function setMotor(target_angle,max_range,position){
+async function getPosition(threshold) {
+    let posArray = [];
+    for (let i = 0; i < 10; i++) {
+        posArray.push(await obniz.ad7.getWait() * 100);
+    }
+    posArray.sort((a, b) => a - b);
+    console.log(posArray[8] - posArray[1]);
+    //最小値と最大値は除外する
+    if (posArray[8] - posArray[1] < threshold) {
+        //0付近の際の値対応
+        if (posArray[8] > max - threshold && Math.abs(posArray[8] - max - posArray[1]) < threshold) {
+            for (let i = 1; i < 9; i++) {
+                if (posArray[i] > 480) {
+                    posArray[i] -= max;
+                }
+            }
+        }
+        let avePos = 0;
+        for (let i = 1; i < 9; i++) {
+            avePos += posArray[i];
+        }
+        avePos = Math.round(avePos /= 8);
+        return { position: avePos, state: "success" };
+    }
+    return { state: "error" };
+}
+
+async function setMotor(target_angle, max_range, position) {
+    if (Math.abs(target_angle - position) > max / 2) {
+        position -= max;
+    }
     if (Math.abs(target_angle - position) < 10) {
-        key_status = "free";
-    } else if ( (target_angle > position) && (Math.abs(target_angle - position) < max_range) ) {
+        await finish_key();
+    } else if ((target_angle > position) && (Math.abs(target_angle - position) < max_range)) {
         console.log("1");
         await start_key(true);
-    } else if ( (target_angle < position) && (Math.abs(target_angle - position) < max_range) ) {
+    } else if ((target_angle < position) && (Math.abs(target_angle - position) < max_range)) {
         console.log("2");
         await start_key(false);
-    }else{
-        key_status = "free";
+    } else {
+        await finish_key();
         console.error("out range");
     }
 }
@@ -112,47 +148,51 @@ obniz.onconnect = async function () {
         } else if (key_status === "close") {
             console.log("close ps:" + position + " conf:" + key_config.close.pos + " diff:" + Math.abs(position - key_config.close.pos));
             if (Math.abs(position - key_config.close.pos) < 10) {
-                await finish_key()
+                await finish_key();
             }
         } else {
-           // console.log("position:" + position);
+            // console.log("position:" + position);
         }
     });
     setInterval(async () => {
-        //console.log("setInterval");
         if (key_status === "free") {
-            obniz.io2.output(true);
-            obniz.io1.output(false);
-            await obniz.wait(100);
-            obniz.io2.output(false);
+            setSolenoid(false);
+        } else {
+            setSolenoid(true);
         }
-    }, 1000);
+    }, 500);
 }
 
 async function start_key(direction) {
     motor.power(100);
     motor.move(direction);
-    obniz.io2.output(false);
-    obniz.io1.output(true);
-    await obniz.wait(100);
-    obniz.io1.output(false);
-    obniz.io1.end();
-    obniz.io2.end();
+    setSolenoid(true);
 }
 
 async function finish_key() {
     console.log("finish_key");
     key_status = "free";
     motor.stop();
-    obniz.io2.output(false);
-    obniz.io1.output(true);
+    setSolenoid(true);
     await obniz.wait(100);
-    obniz.io1.output(false);
-    await obniz.wait(100);
-    obniz.io2.output(true);
-    obniz.io1.output(false);
-    await obniz.wait(100);
-    obniz.io2.output(false);
+    setSolenoid(false);
+}
+
+/** ソレノイドの制御　
+ * True時モータ回転有効
+ */
+async function setSolenoid(out) {
+    if (out) {
+        obniz.io2.output(false);
+        obniz.io1.output(true);
+        await obniz.wait(100);
+        obniz.io1.output(false);
+    } else {
+        obniz.io2.output(true);
+        obniz.io1.output(false);
+        await obniz.wait(100);
+        obniz.io2.output(false);
+    }
     obniz.io1.end();
     obniz.io2.end();
 }
