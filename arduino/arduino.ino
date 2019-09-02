@@ -13,14 +13,17 @@ boolean openSign;
 boolean closedSign;
 boolean settingSign;
 
-int nowPos_old = 0;
+int oldPos = 0;
 int nowPos;
 int targetPos;
 
 const int MAX_POS = 1023;
-int OPEN_POS = 0;
-int CLOSED_POS = 350;
-int MAX_RANGE;
+const int MARGIN_RANGE = 100;
+int maxRange;
+int openPos = 0;
+int closedPos = 350;
+
+
 
 
 void setup() {
@@ -38,46 +41,50 @@ void setup() {
 
   Serial.begin(9600);
   stopMotor();
-
-  MAX_RANGE = abs(OPEN_POS - CLOSED_POS);
-  if (MAX_RANGE > MAX_POS / 2) {
-    MAX_RANGE = MAX_POS - MAX_RANGE;
-  }
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   //信号取得
   getKeySign();  
-  //ポジション取得
+  //ポジション取得（更新）
   getPositionMeter();
 
-  int targetRange;
-  //前のポジションと比較して10以上ずれてたら、nowPosを変更
-   if (abs(nowPos_old - nowPos) > 10) {
+  
+  //前のポジションと比較して10以上ずれてたら、前のポジションを変更
+   if (abs(oldPos - nowPos) > 10) {
     Serial.print("nowPos:");
     Serial.println(nowPos);
-    nowPos_old = nowPos;
+    oldPos = nowPos;
   }
   //オープンポジションとクローズポジションを設定
   if (settingSign == LOW) {
     if (openSign == LOW) {
       Serial.println("setting OpenPos");
-      OPEN_POS = nowPos;
+       openPos = nowPos;
     } else if (closedSign == LOW) {
       Serial.println("setting closedPos");
-      CLOSED_POS = nowPos;
+      closedPos = nowPos;
     }
-    //鍵が動ける最大範囲
-    MAX_RANGE = abs(OPEN_POS - CLOSED_POS) + 100;
+    //鍵が動ける最大範囲を設定
+    if( abs( openPos - closedPos) < MAX_POS / 2) {
+    maxRange = abs( openPos - closedPos) + MARGIN_RANGE;
+  } else {
+    maxRange = (MAX_POS - abs(openPos - closedPos)) + MARGIN_RANGE;
+  }
+
+  
+
+  
+ 
     delay(1000);
     return;
   }
-
+ //目的ポジションを設定
   if (openSign == LOW) {
-    targetPos = OPEN_POS;
+    targetPos =  openPos;
   } else if (closedSign == LOW) {
-    targetPos = CLOSED_POS;
+    targetPos = closedPos;
   } else {
     return;
   }
@@ -85,26 +92,41 @@ void loop() {
   Serial.println(nowPos);
   Serial.print("targetPos:");
   Serial.println(targetPos);
- 
-  
 
-  
+  if (openPos < closedPos){
+    if ((closedPos + MARGIN_RANGE / 2) < MAX_POS) {
+      if ((nowPos < openPos - MARGIN_RANGE / 2) || (closedPos + MARGIN_RANGE / 2) < nowPos) {
+        Serial.println("ERROR 1");
+        return;
+      } 
+    } else {
+        if ((nowPos < openPos - MARGIN_RANGE / 2) || ((closedPos + MARGIN_RANGE / 2 - MAX_POS) < nowPos))
+          Serial.println("ERROR 2");
+          return;
+    }
+  } else {
+    if ((openPos - MARGIN_RANGE / 2) < MAX_POS) {
+      if ((nowPos < closedPos - MARGIN_RANGE / 2) || ((openPos + MARGIN_RANGE / 2) < nowPos)) {
+        Serial.println("ERROR 3");
+        return;
+      }
+    } else {
+        if ((nowPos < closedPos - MARGIN_RANGE / 2) || ((openPos + MARGIN_RANGE / 2 - MAX_POS) < nowPos))
+      Serial.println("ERROR 4");
+      return;
+    }
+  }
+  return;
   //動く距離が10より小さかったらモーターを止める
   if (abs(targetPos - nowPos) < 10) {
     stopMotor();
 
   //目的ポジションより現在ポジションのほうが小さく、かつ移動距離が開閉距離より小さかった場合
-  } else if ((targetPos > nowPos) && (abs(targetPos - nowPos) < MAX_RANGE)) {
-    Serial.println("targetPos > nowPos");
-    Serial.print("targetPos:");
-    Serial.println(targetPos);
+  } else if ((targetPos > nowPos) && (abs(targetPos - nowPos) < maxRange)) {
     Serial.print("nowPos:");
     Serial.println(nowPos);
-    Serial.print("targetPos - nowPos");
-    targetRange = abs(targetPos - nowPos);
-    Serial.println(targetRange);
-    Serial.print("MAX_RANGE");
-    Serial.println(MAX_RANGE);
+    Serial.print("maxRange");
+    Serial.println(maxRange);
     startSolenoid();
     digitalWrite(MOTOR_REVERSE, HIGH);
     while (abs(targetPos - nowPos) >= 10) {
@@ -116,17 +138,15 @@ void loop() {
     Serial.println(nowPos);
     Serial.println();
   //目的ポジションより現在ポジションのほうが大きく、かつ移動距離が開閉距離より小さかった場合
-  } else if ((targetPos < nowPos) && (abs(targetPos - nowPos) < MAX_RANGE)) {
+  } else if ((targetPos < nowPos) && (abs(targetPos - nowPos) < maxRange)) {
     Serial.println("targetPos < nowPos");
     Serial.print("targetPos:");
     Serial.println(targetPos);
     Serial.print("nowPos:");
     Serial.println(nowPos);
     Serial.print("targetPos - nowPos");
-    targetRange = abs(targetPos - nowPos);
-    Serial.println(targetRange);
-    Serial.print("MAX_RANGE");
-    Serial.println(MAX_RANGE);
+    Serial.print("maxRange");
+    Serial.println(maxRange);
     startSolenoid();
     digitalWrite(MOTOR_NORMAL, HIGH);
     while (abs(targetPos - nowPos) >= 10) {
