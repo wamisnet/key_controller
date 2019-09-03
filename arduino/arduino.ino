@@ -49,13 +49,13 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   //信号取得
-  getKeySign();  
+  getKeySign();
   //ポジション取得（更新）
   getPositionMeter();
 
-  
+
   //前のポジションと比較して10以上ずれてたら、前のポジションを変更
-   if (abs(oldPos - nowPos) > 10) {
+  if (abs(oldPos - nowPos) > 10) {
     Serial.print("nowPos:");
     Serial.println(nowPos);
     oldPos = nowPos;
@@ -64,26 +64,26 @@ void loop() {
   if (settingSign == LOW) {
     if (openSign == LOW) {
       Serial.println("setting OpenPos");
-       openPos = nowPos;
+      openPos = nowPos;
     } else if (closedSign == LOW) {
       Serial.println("setting closedPos");
       closedPos = nowPos;
     }
     //鍵が動ける最大範囲を設定
-    if( abs( openPos - closedPos) < MAX_POS / 2) {
-    maxRange = abs( openPos - closedPos) + MARGIN_RANGE;
-  } else {
-    maxRange = (MAX_POS - abs(openPos - closedPos)) + MARGIN_RANGE;
-  }
+    if ( abs( openPos - closedPos) < MAX_POS / 2) {
+      maxRange = abs( openPos - closedPos) + MARGIN_RANGE;
+    } else {
+      maxRange = (MAX_POS - abs(openPos - closedPos)) + MARGIN_RANGE;
+    }
 
-  
 
-  
- 
+
+
+
     delay(1000);
     return;
   }
- //目的ポジションを設定
+  //目的ポジションを設定
   if (openSign == LOW) {
     targetPos =  openPos;
   } else if (closedSign == LOW) {
@@ -97,142 +97,176 @@ void loop() {
   Serial.println(targetPos);
 
   //鍵の可動範囲外にポジションがあった場合はエラーを出す
-  int fillInDifference(int edgePos, int margin) {
-  if ((edgePos + margin) < 0) {
-    return MAX_POS + (edgePos + margin);
-  } else if ((edgePos + margin) > MAX_POS) {
-    return (edgePos + margin) - MAX_POS; 
-  } else {
-    return edgePos + margin;
-  }
-} 
-  
   if (openPos < closedPos) {
-    openMarginPos = openPos - MARGIN_RANGE / 2;
-    closedMarginPos = closedPos + MARGIN_RANGE / 2;
-    if (closedMarginPos < MAX_POS) {
-      if ((closedMarginPos < nowPos) || (nowPos < openMarginPos)) {
-        Serial.println("ERROR 1");
+    if ( (fillInOpenDifference(openPos, -(MARGIN_RANGE / 2))) || (fillInClosedDifference(closedPos, MARGIN_RANGE / 2)) ) {
+      if ((nowPos > closedMarginPos) && (nowPos < openMarginPos)) {
+        Serial.println("ERROR1");
         return;
-      } 
-    } else { 
-      if (((closedMarginPos - MAX_POS) < nowPos) && (nowPos < openMarginPos)) {
-        Serial.println("ERROR 2");
-        return;
-      }
-    }
-  } else {
-    openMarginPos = openPos + MARGIN_RANGE / 2;
-    closedMarginPos = closedPos - MARGIN_RANGE / 2;
-    if (openMarginPos < MAX_POS) {
-      if ((openMarginPos < nowPos) || (nowPos < closedMarginPos)) {
-          Serial.println("ERROR 3");
-          return;
       }
     } else {
-      if (((openMarginPos - MAX_POS) < nowPos) && (nowPos < closedMarginPos)) {
-        Serial.println("ERROR 4");
+      if ((nowPos < closedMarginPos) || (openMarginPos < nowPos)) {
+        Serial.println("ERROR2");
         return;
       }
-    }
-  }
-  return;
-  //動く距離が10より小さかったらモーターを止める
-  if (abs(targetPos - nowPos) < 10) {
-    stopMotor();
-
-  //目的ポジションより現在ポジションのほうが小さく、かつ移動距離が開閉距離より小さかった場合
-  } else if ((targetPos > nowPos) && (abs(targetPos - nowPos) < maxRange)) {
-    Serial.print("nowPos:");
-    Serial.println(nowPos);
-    Serial.print("maxRange");
-    Serial.println(maxRange);
-    startSolenoid();
-    digitalWrite(MOTOR_REVERSE, HIGH);
-    while (abs(targetPos - nowPos) >= 10) {
-      getPositionMeter();
-      getMotorFault();
-    }
-    stopMotor();
-    Serial.print("nowPos:");
-    Serial.println(nowPos);
-    Serial.println();
-  //目的ポジションより現在ポジションのほうが大きく、かつ移動距離が開閉距離より小さかった場合
-  } else if ((targetPos < nowPos) && (abs(targetPos - nowPos) < maxRange)) {
-    Serial.println("targetPos < nowPos");
-    Serial.print("targetPos:");
-    Serial.println(targetPos);
-    Serial.print("nowPos:");
-    Serial.println(nowPos);
-    Serial.print("targetPos - nowPos");
-    Serial.print("maxRange");
-    Serial.println(maxRange);
-    startSolenoid();
-    digitalWrite(MOTOR_NORMAL, HIGH);
-    while (abs(targetPos - nowPos) >= 10) {
-      getPositionMeter();
-      getMotorFault();
-    }
-    stopMotor();
-    Serial.print("nowPos:");
-    Serial.println(nowPos);
-    Serial.println();
+    } 
   } else {
-    Serial.println("Max Range Error");
+      if ( (fillInClosedDifference(closedPos, -(MARGIN_RANGE / 2))) || (fillInOpenDifference(openPos, MARGIN_RANGE / 2)) ) {
+        if ((nowPos < openMarginPos) || (closedMarginPos < nowPos)) {
+          Serial.println("ERROR3");
+          return;
+        }
+      } else {
+        if ((nowPos < openMarginPos) || (closedMarginPos < nowPos)) {
+          Serial.println("ERROR4");
+          return;
+        }
+      }
+    }
+  
+
+    /*  if (openPos < closedPos) {
+        openMarginPos = fillInDifference(openPos, -(MARGIN_POS / 2));
+        closedMarginPos = fillInDifference(closedPos, MAGIN_POS / 2);
+        if (closedMarginPos > openMarginPos) {
+          if ((closedMarginPos < nowPos) || (nowPos < openMarginPos)) {
+            Serial.println("ERROR 1");
+            return;
+          }
+        } else {
+          if ((closedPos < nowPos) && (nowPos < openMarginPos)) {
+            Serial.println("ERROR 2");
+            return;
+          }
+        }
+      } else {
+        openMarginPos = fillInDifference(openPos, MARGIN_POS / 2);
+        closedMarginPos = fillInDifference(closedPos, -(MAGIN_POS / 2));
+        if (openMarginPos > closedMarginPos) {
+          if ((openMarginPos < nowPos) || (nowPos < closedMarginPos)) {
+              Serial.println("ERROR 3");
+              return;
+          }
+        } else {
+          if (((openMarginPos - MAX_POS) < nowPos) && (nowPos < closedMarginPos)) {
+            Serial.println("ERROR 4");
+            return;
+          }
+        }
+      }*/
+    return;
+    //動く距離が10より小さかったらモーターを止める
+    if (abs(targetPos - nowPos) < 10) {
+      stopMotor();
+
+      //目的ポジションより現在ポジションのほうが小さく、かつ移動距離が開閉距離より小さかった場合
+    } else if ((targetPos > nowPos) && (abs(targetPos - nowPos) < maxRange)) {
+      Serial.print("nowPos:");
+      Serial.println(nowPos);
+      Serial.print("maxRange");
+      Serial.println(maxRange);
+      startSolenoid();
+      digitalWrite(MOTOR_REVERSE, HIGH);
+      while (abs(targetPos - nowPos) >= 10) {
+        getPositionMeter();
+        getMotorFault();
+      }
+      stopMotor();
+      Serial.print("nowPos:");
+      Serial.println(nowPos);
+      Serial.println();
+      //目的ポジションより現在ポジションのほうが大きく、かつ移動距離が開閉距離より小さかった場合
+    } else if ((targetPos < nowPos) && (abs(targetPos - nowPos) < maxRange)) {
+      Serial.println("targetPos < nowPos");
+      Serial.print("targetPos:");
+      Serial.println(targetPos);
+      Serial.print("nowPos:");
+      Serial.println(nowPos);
+      Serial.print("targetPos - nowPos");
+      Serial.print("maxRange");
+      Serial.println(maxRange);
+      startSolenoid();
+      digitalWrite(MOTOR_NORMAL, HIGH);
+      while (abs(targetPos - nowPos) >= 10) {
+        getPositionMeter();
+        getMotorFault();
+      }
+      stopMotor();
+      Serial.print("nowPos:");
+      Serial.println(nowPos);
+      Serial.println();
+    } else {
+      Serial.println("Max Range Error");
+    }
   }
-}
 
-void getKeySign() {
-  openSign = digitalRead(OPEN_SIGN);
-  closedSign = digitalRead(CLOSED_SIGN);
-  settingSign = digitalRead(SETTING_BTN);
-}
 
-void getPositionMeter() {
-  nowPos = analogRead(POSITIONMETER);
-}
-
-void stopMotor() {
-  digitalWrite(MOTOR_NORMAL, LOW);
-  digitalWrite(MOTOR_REVERSE, LOW);
-  digitalWrite(SOLENOID_NORMAL, LOW);
-  digitalWrite(SOLENOID_REVERSE, LOW);
-  endSolenoid();
-}
-
-void startSolenoid() {
-  digitalWrite(SOLENOID_NORMAL, HIGH);
-  digitalWrite(SOLENOID_REVERSE, LOW);
-  delay(200);
-  digitalWrite(SOLENOID_NORMAL, LOW);
-  digitalWrite(SOLENOID_REVERSE, LOW);
-}
-
-void endSolenoid() {
-  startSolenoid();
-  delay(200);
-  digitalWrite(SOLENOID_NORMAL, LOW);
-  digitalWrite(SOLENOID_REVERSE, HIGH);
-  delay(200);
-  digitalWrite(SOLENOID_NORMAL, LOW);
-  digitalWrite(SOLENOID_REVERSE, LOW);
-}
-
-void getMotorFault() {
-  if (digitalRead(SOLENOID_FAULT) == LOW) {
-    Serial.println("Solenoid Error");
+  void getKeySign() {
+    openSign = digitalRead(OPEN_SIGN);
+    closedSign = digitalRead(CLOSED_SIGN);
+    settingSign = digitalRead(SETTING_BTN);
   }
-  if (digitalRead(MOTOR_FAULT) == LOW) {
-    Serial.println("motor Error");
-  }
-}
 
- int fillInDifference(int edgePos, int margin) {
-  if ((edgePos + margin) < 0) {
-    return MAX_POS + (edgePos + margin);
-  } else if ((edgePos + margin) > MAX_POS) {
-    return (edgePos + margin) - MAX_POS; 
-  } else {
-    return edgePos + margin;
+  void getPositionMeter() {
+    nowPos = analogRead(POSITIONMETER);
   }
-} 
+
+  void stopMotor() {
+    digitalWrite(MOTOR_NORMAL, LOW);
+    digitalWrite(MOTOR_REVERSE, LOW);
+    digitalWrite(SOLENOID_NORMAL, LOW);
+    digitalWrite(SOLENOID_REVERSE, LOW);
+    endSolenoid();
+  }
+
+  void startSolenoid() {
+    digitalWrite(SOLENOID_NORMAL, HIGH);
+    digitalWrite(SOLENOID_REVERSE, LOW);
+    delay(200);
+    digitalWrite(SOLENOID_NORMAL, LOW);
+    digitalWrite(SOLENOID_REVERSE, LOW);
+  }
+
+  void endSolenoid() {
+    startSolenoid();
+    delay(200);
+    digitalWrite(SOLENOID_NORMAL, LOW);
+    digitalWrite(SOLENOID_REVERSE, HIGH);
+    delay(200);
+    digitalWrite(SOLENOID_NORMAL, LOW);
+    digitalWrite(SOLENOID_REVERSE, LOW);
+  }
+
+  void getMotorFault() {
+    if (digitalRead(SOLENOID_FAULT) == LOW) {
+      Serial.println("Solenoid Error");
+    }
+    if (digitalRead(MOTOR_FAULT) == LOW) {
+      Serial.println("motor Error");
+    }
+  }
+
+  int fillInOpenDifference(int openPos, int margin) {
+    if ((openPos + margin) < 0) {
+      openMarginPos = MAX_POS + (openPos + margin);
+      return 1;
+    } else if ((openPos + margin) > MAX_POS) {
+      openMarginPos = (openPos + margin) - MAX_POS;
+      return 1;
+    } else {
+      openMarginPos += margin;
+      return 0;
+    }
+  }
+
+int fillInClosedDifference(int closedPos, int margin) {
+    if ((closedPos + margin) < 0) {
+      openMarginPos = MAX_POS + (closedPos + margin);
+      return 1;
+    } else if ((closedPos + margin) > MAX_POS) {
+      closedMarginPos = (closedPos + margin) - MAX_POS;
+      return 1;
+    } else {
+      closedMarginPos += margin;
+      return 0;
+    }
+  }
