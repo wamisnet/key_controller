@@ -16,6 +16,9 @@ boolean settingSign;
 int oldPos = 0;
 int nowPos;
 int targetPos;
+int openMarginPos;
+int closedMarginPos;
+
 
 const int MAX_POS = 1023;
 const int MARGIN_RANGE = 100;
@@ -93,27 +96,44 @@ void loop() {
   Serial.print("targetPos:");
   Serial.println(targetPos);
 
-  if (openPos < closedPos){
-    if ((closedPos + MARGIN_RANGE / 2) < MAX_POS) {
-      if ((nowPos < openPos - MARGIN_RANGE / 2) || (closedPos + MARGIN_RANGE / 2) < nowPos) {
+  //鍵の可動範囲外にポジションがあった場合はエラーを出す
+  int fillInDifference(int edgePos, int margin) {
+  if ((edgePos + margin) < 0) {
+    return MAX_POS + (edgePos + margin);
+  } else if ((edgePos + margin) > MAX_POS) {
+    return (edgePos + margin) - MAX_POS; 
+  } else {
+    return edgePos + margin;
+  }
+} 
+  
+  if (openPos < closedPos) {
+    openMarginPos = openPos - MARGIN_RANGE / 2;
+    closedMarginPos = closedPos + MARGIN_RANGE / 2;
+    if (closedMarginPos < MAX_POS) {
+      if ((closedMarginPos < nowPos) || (nowPos < openMarginPos)) {
         Serial.println("ERROR 1");
         return;
       } 
-    } else {
-        if ((nowPos < openPos - MARGIN_RANGE / 2) || ((closedPos + MARGIN_RANGE / 2 - MAX_POS) < nowPos))
-          Serial.println("ERROR 2");
-          return;
-    }
-  } else {
-    if ((openPos - MARGIN_RANGE / 2) < MAX_POS) {
-      if ((nowPos < closedPos - MARGIN_RANGE / 2) || ((openPos + MARGIN_RANGE / 2) < nowPos)) {
-        Serial.println("ERROR 3");
+    } else { 
+      if (((closedMarginPos - MAX_POS) < nowPos) && (nowPos < openMarginPos)) {
+        Serial.println("ERROR 2");
         return;
       }
+    }
+  } else {
+    openMarginPos = openPos + MARGIN_RANGE / 2;
+    closedMarginPos = closedPos - MARGIN_RANGE / 2;
+    if (openMarginPos < MAX_POS) {
+      if ((openMarginPos < nowPos) || (nowPos < closedMarginPos)) {
+          Serial.println("ERROR 3");
+          return;
+      }
     } else {
-        if ((nowPos < closedPos - MARGIN_RANGE / 2) || ((openPos + MARGIN_RANGE / 2 - MAX_POS) < nowPos))
-      Serial.println("ERROR 4");
-      return;
+      if (((openMarginPos - MAX_POS) < nowPos) && (nowPos < closedMarginPos)) {
+        Serial.println("ERROR 4");
+        return;
+      }
     }
   }
   return;
@@ -206,3 +226,13 @@ void getMotorFault() {
     Serial.println("motor Error");
   }
 }
+
+ int fillInDifference(int edgePos, int margin) {
+  if ((edgePos + margin) < 0) {
+    return MAX_POS + (edgePos + margin);
+  } else if ((edgePos + margin) > MAX_POS) {
+    return (edgePos + margin) - MAX_POS; 
+  } else {
+    return edgePos + margin;
+  }
+} 
