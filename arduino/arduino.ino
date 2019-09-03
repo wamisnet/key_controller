@@ -97,10 +97,18 @@ void loop() {
   Serial.println(targetPos);
 
   //鍵の可動範囲外にポジションがあった場合はエラーを出す
+  fillInOpenDifference(openPos, -(MARGIN_RANGE / 2));
+  fillInClosedDifference(closedPos, MARGIN_RANGE / 2); //左側の条件式が成立したら、右の関数が呼び出されないのでいったん追加 いったん戻り値を変数に入れたほうがいいと思う
   if (openPos < closedPos) {
-    if ( (fillInOpenDifference(openPos, -(MARGIN_RANGE / 2))) || (fillInClosedDifference(closedPos, MARGIN_RANGE / 2)) ) {
+    if ( fillInOpenDifference(openPos, -(MARGIN_RANGE / 2)) || (fillInClosedDifference(closedPos, MARGIN_RANGE / 2)) ) {
       if ((nowPos > closedMarginPos) && (nowPos < openMarginPos)) {
         Serial.println("ERROR1");
+        Serial.print("closedMarginPos");
+        Serial.println(closedMarginPos);
+        Serial.print("openMarginPos");
+        Serial.println(openMarginPos);
+        Serial.print("nowPos");
+        Serial.println(nowPos);
         return;
       }
     } else {
@@ -153,7 +161,7 @@ void loop() {
           }
         }
       }*/
-    return;
+    
     //動く距離が10より小さかったらモーターを止める
     if (abs(targetPos - nowPos) < 10) {
       stopMotor();
@@ -260,7 +268,7 @@ void loop() {
 
 int fillInClosedDifference(int closedPos, int margin) {
     if ((closedPos + margin) < 0) {
-      openMarginPos = MAX_POS + (closedPos + margin);
+      closedMarginPos = MAX_POS + (closedPos + margin);
       return 1;
     } else if ((closedPos + margin) > MAX_POS) {
       closedMarginPos = (closedPos + margin) - MAX_POS;
