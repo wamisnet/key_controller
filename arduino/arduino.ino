@@ -23,8 +23,8 @@ int closedMarginPos;
 const int MAX_POS = 1023;
 const int MARGIN_RANGE = 100;
 //int maxRange = 450;
-int openPos = 0;
-int closedPos = 400;
+int openPos = 550;
+int closedPos = 1020;
 //int middlePos;
 
 
@@ -88,12 +88,12 @@ void loop() {
   //目的ポジションを設定
   if (openSign == LOW) {
     targetPos =  openPos;
-    } else if (closedSign == LOW) {
+  } else if (closedSign == LOW) {
     targetPos = closedPos;
-    } else {
+  } else {
     return;
-    }
-    /*Serial.print("nowPos");
+  }
+  /*Serial.print("nowPos");
     Serial.println(nowPos);
     Serial.print("targetPos:");
     Serial.println(targetPos);*/
@@ -107,11 +107,11 @@ void loop() {
     openMarginPosOver = fillInOpenDifference(openPos, -(MARGIN_RANGE / 2));
     closedMarginPosOver = fillInClosedDifference(closedPos, MARGIN_RANGE / 2);
     Serial.print("closedMarginPos");
-        Serial.println(closedMarginPos);
-        Serial.print("openMarginPos");
-        Serial.println(openMarginPos);
-        Serial.print("nowPos");
-        Serial.println(nowPos);
+    Serial.println(closedMarginPos);
+    Serial.print("openMarginPos");
+    Serial.println(openMarginPos);
+    Serial.print("nowPos");
+    Serial.println(nowPos);
     if ( openMarginPosOver || closedMarginPosOver ) {
       if ((nowPos > closedMarginPos) && (nowPos < openMarginPos)) {
         Serial.println("ERROR1");
@@ -162,32 +162,33 @@ void loop() {
       }
     }
   }
-  
+
 
   if (abs(targetPos - nowPos) < 10) {
     stopMotor();
     Serial.println("1");
   }
 
-if (nowPos < targetPos) {
-  startSolenoid();
-  digitalWrite(MOTOR_NORMAL, HIGH);
-  while (abs(targetPos - nowPos) >= 10) {
-    getPositionMeter();
-    getMotorFault();
+  if (nowPos < targetPos) {
+    startSolenoid();
+    digitalWrite(MOTOR_NORMAL, HIGH);
+    while (abs(targetPos - nowPos) >= 10) {
+      getPositionMeter();
+      getMotorFault();
+    }
+    stopMotor();
+
+  } else {
+    startSolenoid();
+    digitalWrite(MOTOR_REVERSE, HIGH);
+    while (abs(targetPos - nowPos) >= 10) {
+      getPositionMeter();
+      getMotorFault();
+    }
+    stopMotor();
   }
+  delay(100);
   stopMotor();
-  
-} else {
-  startSolenoid();
-  digitalWrite(MOTOR_REVERSE, HIGH);
-  while (abs(targetPos - nowPos) >= 10) {
-    getPositionMeter();
-    getMotorFault();
-  }
-  stopMotor();
-}
-  
 }
 
 
